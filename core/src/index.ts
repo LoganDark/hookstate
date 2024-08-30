@@ -94,7 +94,7 @@ export type ImmutableObject<T> = { readonly [K in keyof T]: Immutable<T[K]> };
  * 
  * @typeparam S Type of a value of a state
  */
-export interface StateMethods<S, E> {
+export type StateMethods<S, E> = {
     /**
      * 'Javascript' object 'path' to an element relative to the root object
      * in the state. For example:
@@ -260,7 +260,7 @@ export const __state = Symbol('__state')
  * @ignore
  */
 export interface __State<S, E> {
-    [__state]: [S, E]
+    [__state]: [(S: S) => S, E]
 }
 
 /**
@@ -277,6 +277,11 @@ export type InferStateExtensionType<V> = InferReturnType<V> extends __State<(inf
     ? E : V
 export type InferReturnType<V> = V extends (...args: any) => (infer R) ? InferReturnType<R> : V;
 
+type KeyOf<T, K extends keyof T = keyof T> = K
+type MethodKeyOf<T> = keyof T extends KeyOf<T, infer K> ? K extends any ? T[K] extends Function ? K : never : never : never
+type PotentialKeyOf<T> = T extends {} ? keyof T : never
+type PotentialMethodKeyOf<T> = T extends {} ? MethodKeyOf<T> : never
+
 /**
  * Type of a result of [hookstate](#hookstate) and [useHookstate](#useHookstate) functions
  * 
@@ -287,14 +292,12 @@ export type InferReturnType<V> = V extends (...args: any) => (infer R) ? InferRe
  * [Learn more about nested states...](https://hookstate.js.org/docs/nested-state)
  */
 export type State<S, E = {}> = __State<S, E> & StateMethods<S, E> & E & (
-    [S] extends [Exclude<S, {}>] ? {} :
-    S extends ReadonlyArray<infer U> ? ReadonlyArray<State<U, E>> :
-    Omit<
-        S extends {}
-            ? { readonly [K in keyof Required<S>]: State<S[K], E> }
-            : { readonly [K in keyof any]: undefined },
-        keyof StateMethods<S, E> | InferKeysOfType<S, Function> | keyof E
-    >
+    Exclude<PotentialKeyOf<S>, PotentialMethodKeyOf<S> | keyof __State<S, E> | keyof StateMethods<S, E> | keyof E> extends KeyOf<any, infer K> ?
+        S extends ReadonlyArray<infer U> ? ReadonlyArray<State<U, E>> :
+        S extends NonNullable<infer U>
+            ? { readonly [UK in keyof U & K]: State<U[UK], E> }
+            : { readonly [UK in K]: undefined } :
+        {}
 );
 
 /**
