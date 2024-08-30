@@ -291,14 +291,19 @@ type PotentialMethodKeyOf<T> = T extends {} ? MethodKeyOf<T> : never
  * [Learn more about local states...](https://hookstate.js.org/docs/local-state)
  * [Learn more about nested states...](https://hookstate.js.org/docs/nested-state)
  */
-export type State<S, E = {}> = __State<S, E> & StateMethods<S, E> & E & (
+export type State<S, E = {}> = __State<S, E> & StateMethods<S, E> & E & StateProperties<S, E>;
+
+/**
+ * @hidden
+ * @ignore
+ */
+export type StateProperties<S, E = {}> =
     Exclude<PotentialKeyOf<S>, PotentialMethodKeyOf<S> | keyof __State<S, E> | keyof StateMethods<S, E> | keyof E> extends KeyOf<any, infer K> ?
         S extends ReadonlyArray<infer U> ? ReadonlyArray<State<U, E>> :
         S extends NonNullable<infer U>
             ? { readonly [UK in keyof U & K]: State<U[UK], E> }
             : { readonly [UK in K]: undefined } :
-        {}
-);
+        {};
 
 /**
  * For extension developers only.

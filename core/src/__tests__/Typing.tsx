@@ -138,4 +138,76 @@ test('check assignability on typescript level', async () => {
         true satisfies TestFieldMissing<typeof a, 'c'>;
         true satisfies TestEquals<typeof a.b, State<2> | undefined>;
     }
+
+    {
+        type NarrowTo<To, From, Keys extends keyof To & keyof From> = {
+            [K in (keyof To & Keys) | Exclude<keyof From, Keys>]:
+                K extends keyof To & Keys ? To[K] :
+                K extends Exclude<keyof From, Keys> ? From[K] :
+                never
+        };
+
+        type NarrowedStateMethods<To, From, E = {}> =
+            NarrowTo<
+                StateMethods<From, E>,
+                StateMethods<To, E>,
+                'promise' | 'set' | 'merge' | 'nested' | 'ornull'
+            >;
+
+        type NarrowedState<To, From, E = {}> = __State<From, E> & NarrowedStateMethods<To, From, E> & E & StateProperties<To, E>;
+
+        // oh, look what I can do
+        const isNonNullable = <From, To extends From, E = {}>(state: NarrowedState<To, From, E>): state is NarrowedState<NonNullable<To>, From, E> => state.ornull !== null
+
+        const a = hookstate(true ? { a: true ? { b: true ? 2 : null } as const : null } as const : null);
+
+        true satisfies TestEquals<typeof a, State<{ a: { b: 2 | null } | null } | null>>;
+        true satisfies TestEquals<typeof a.value, { a: { b: 2 | null } | null } | null>;
+        true satisfies TestFieldPresent<typeof a, 'a'>;
+        true satisfies TestFieldMissing<typeof a, 'b'>;
+        true satisfies TestFieldMissing<typeof a, 'c'>;
+        true satisfies TestEquals<typeof a.a, State<{ b: 2 | null } | null> | undefined>;
+
+        if (isNonNullable(a)) {
+            const b = a;
+
+            true satisfies TestEquals<typeof b.value, { a: { b: 2 | null } | null }>;
+            true satisfies TestEquals<typeof b.a, State<{ b: 2 | null } | null>>;
+            true satisfies TestEquals<typeof b.a.b, State<2 | null> | undefined>;
+
+            const ba = b.a;
+
+            true satisfies TestEquals<typeof ba, State<{ b: 2 | null } | null>>;
+            true satisfies TestEquals<typeof ba.value, { b: 2 | null } | null>;
+            true satisfies TestFieldPresent<typeof ba, 'b'>;
+            true satisfies TestEquals<typeof ba.b, State<2 | null> | undefined>;
+
+            if (isNonNullable(ba)) {
+                const ca = ba;
+
+                true satisfies TestEquals<typeof ca.value, { b: 2 | null }>;
+                true satisfies TestFieldMissing<typeof ca, 'a'>;
+                true satisfies TestFieldPresent<typeof ca, 'b'>;
+                true satisfies TestFieldMissing<typeof ca, 'c'>;
+                true satisfies TestEquals<typeof ca.b, State<2 | null>>;
+
+                const cab = ca.b;
+
+                true satisfies TestEquals<typeof cab, State<2 | null>>;
+                true satisfies TestEquals<typeof cab.value, 2 | null>;
+                true satisfies TestFieldMissing<typeof cab, 'a'>;
+                true satisfies TestFieldMissing<typeof cab, 'b'>;
+                true satisfies TestFieldMissing<typeof cab, 'c'>;
+
+                if (isNonNullable(cab)) {
+                    const dab = cab;
+
+                    true satisfies TestEquals<typeof dab.value, 2>;
+                    true satisfies TestFieldMissing<typeof dab, 'a'>;
+                    true satisfies TestFieldMissing<typeof dab, 'b'>;
+                    true satisfies TestFieldMissing<typeof dab, 'c'>;
+                }
+            }
+        }
+    }
 });
